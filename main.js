@@ -3,6 +3,13 @@ const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
 
+// Отключение аппаратного ускорения на Windows для решения проблем с GPU
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-gpu');
+  app.commandLine.appendSwitch('disable-gpu-compositing');
+  app.commandLine.appendSwitch('disable-software-rasterizer');
+}
+
 // Получаем путь к FFmpeg (работает и в dev, и в production)
 function getFfmpegPath() {
   if (app.isPackaged) {
