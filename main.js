@@ -178,8 +178,12 @@ ipcMain.handle('start-recording', async () => {
       });
 
       return { success: true, path: filePath };
+    } catch (error) {
+      console.error('Ошибка при запуске записи:', error);
+      return { success: false, error: error.message };
+    }
   } catch (error) {
-    console.error('Ошибка при запуске записи:', error);
+    console.error('Ошибка при обработке записи:', error);
     return { success: false, error: error.message };
   }
 });
