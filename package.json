@@ -1,0 +1,50 @@
+{
+  "name": "system-audio-recorder",
+  "version": "1.0.0",
+  "description": "Диктофон для записи системного звука (Windows и macOS)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac"
+  },
+  "keywords": [
+    "audio",
+    "recorder",
+    "system-audio",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+  },
+  "build": {
+    "appId": "com.systemaudiorecorder.app",
+    "productName": "System Audio Recorder",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "asarUnpack": [
+      "node_modules/@ffmpeg-installer/**/*"
+    ],
+    "files": [
+      "**/*",
+      "!node_modules/**/*",
+      "node_modules/electron/**/*",
+      "node_modules/@ffmpeg-installer/**/*"
+    ]
+  }
+}
+
