@@ -22,7 +22,7 @@
     "electron-builder": "^24.6.4"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0"
+    "@ffmpeg-installer/ffmpeg": "latest"
   },
   "build": {
     "appId": "com.systemaudiorecorder.app",
