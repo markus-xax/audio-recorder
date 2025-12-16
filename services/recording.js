@@ -10,6 +10,7 @@ class RecordingService {
     this.mainWindow = null;
     this.useDirectShow = false; // Флаг для fallback на DirectShow на Windows
     this.ffmpegPath = null; // Сохраняем путь к FFmpeg для fallback
+    this.directShowDeviceIndex = 0; // Индекс текущего пробуемого устройства DirectShow
   }
 
   /**
@@ -32,6 +33,10 @@ class RecordingService {
     }
 
     try {
+      // Сбрасываем состояние для новой записи
+      this.useDirectShow = false;
+      this.directShowDeviceIndex = 0;
+      
       // Проверяем FFmpeg
       const validation = validateFfmpeg();
       if (!validation.exists) {
@@ -101,8 +106,9 @@ class RecordingService {
           this.useDirectShow = true;
           
           // Перезапускаем запись с DirectShow
+          this.directShowDeviceIndex = 0; // Сбрасываем индекс при первом переключении
           setTimeout(() => {
-            const { args, error } = getRecordingArgs(this.outputPath, null, true);
+            const { args, error } = getRecordingArgs(this.outputPath, null, true, this.directShowDeviceIndex);
             if (!error && this.ffmpegPath) {
               console.log('Запуск FFmpeg с DirectShow:', args.join(' '));
               this.recordingProcess = spawn(this.ffmpegPath, args);
@@ -122,21 +128,44 @@ class RecordingService {
           return;
         }
 
-        // Обработка ошибок DirectShow
+        // Обработка ошибок DirectShow - пробуем следующее устройство
         if (platform === 'win32' && 
             this.useDirectShow && 
-            (output.includes('Cannot find') || output.includes('does not exist'))) {
-          console.error('DirectShow устройство не найдено');
+            (output.includes('Could not find') || 
+             output.includes('does not exist') || 
+             output.includes('I/O error'))) {
+          console.log('DirectShow устройство не найдено, пробуем следующее...');
           recordingProc.kill();
           this.recordingProcess = null;
-          if (this.mainWindow) {
-            this.mainWindow.webContents.send('recording-error', 
-              'Не найдено устройство для записи системного звука.\n\n' +
-              'Для записи системного звука на Windows:\n' +
-              '1. Включите "Stereo Mix" в настройках звука Windows (ПКМ на иконке звука -> Звуки -> Запись)\n' +
-              '2. Или установите Virtual Audio Cable: https://vb-audio.com/Cable/\n' +
-              '3. После установки выберите устройство в настройках записи'
-            );
+          
+          // Пробуем следующее устройство
+          this.directShowDeviceIndex++;
+          const result = getRecordingArgs(
+            this.outputPath, 
+            null, 
+            true, 
+            this.directShowDeviceIndex
+          );
+          
+          if (!result.error && this.ffmpegPath && result.deviceIndex !== undefined && result.deviceIndex < result.totalDevices) {
+            console.log(`Пробуем следующее устройство (${result.deviceIndex + 1}/${result.totalDevices})...`);
+            setTimeout(() => {
+              this.recordingProcess = spawn(this.ffmpegPath, result.args);
+              this._setupProcessHandlers();
+            }, 500);
+          } else {
+            // Все устройства перепробованы
+            console.error('Все устройства DirectShow перепробованы, не найдено подходящее');
+            if (this.mainWindow) {
+              this.mainWindow.webContents.send('recording-error', 
+                'Не найдено устройство для записи системного звука.\n\n' +
+                'Для записи системного звука на Windows:\n' +
+                '1. Включите "Stereo Mix" в настройках звука Windows:\n' +
+                '   ПКМ на иконке звука -> Звуки -> Запись -> Включите "Stereo Mix"\n' +
+                '2. Или установите Virtual Audio Cable: https://vb-audio.com/Cable/\n' +
+                '3. После установки перезапустите приложение'
+              );
+            }
           }
           return;
         }

@@ -17,9 +17,10 @@ function initializePlatform() {
  * @param {string} outputPath - Путь для сохранения файла
  * @param {number|null} deviceIndex - Индекс аудио устройства (для macOS, по умолчанию 0)
  * @param {boolean} useDirectShow - Использовать DirectShow вместо WASAPI (fallback для Windows)
+ * @param {number} directShowDeviceIndex - Индекс устройства DirectShow для попытки (по умолчанию 0)
  * @returns {{args: string[], error?: string}} Аргументы FFmpeg или ошибка
  */
-function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false) {
+function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false, directShowDeviceIndex = 0) {
   const platform = process.platform;
 
   if (platform === 'win32') {
@@ -33,21 +34,30 @@ function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false)
         'audio="Stereo Mix"',
         'audio="What U Hear"',
         'audio="Wave Out Mix"',
-        'audio="virtual-audio-capturer"'
+        'audio="virtual-audio-capturer"',
+        'audio="CABLE Input"',
+        'audio="VB-Audio Virtual Cable"'
       ];
       
-      // Используем первое устройство из списка (можно улучшить, добавив автоматический поиск)
+      // Используем устройство по индексу (пробуем по очереди)
+      const deviceIndex = Math.min(directShowDeviceIndex, deviceOptions.length - 1);
+      const selectedDevice = deviceOptions[deviceIndex];
+      
+      console.log(`Пробуем DirectShow устройство ${deviceIndex + 1}/${deviceOptions.length}: ${selectedDevice}`);
+      
       return {
         args: [
           '-f', 'dshow',
-          '-i', deviceOptions[0],
+          '-i', selectedDevice,
           '-acodec', 'libmp3lame',
           '-b:a', '192k',
           '-ar', '44100',
           '-ac', '2',
           '-y',
           outputPath
-        ]
+        ],
+        deviceIndex: deviceIndex,
+        totalDevices: deviceOptions.length
       };
     }
     // Для Windows используем WASAPI loopback для захвата системного звука
