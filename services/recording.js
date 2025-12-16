@@ -81,6 +81,7 @@ class RecordingService {
         output.includes('No AV capture device found') ||
         output.includes('Input/output error') ||
         output.includes('Cannot find') ||
+        output.includes('Unknown input format') ||
         output.includes('error') ||
         output.includes('Error')
       ) {

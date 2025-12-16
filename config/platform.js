@@ -23,6 +23,8 @@ function getRecordingArgs(outputPath, deviceIndex = null) {
 
   if (platform === 'win32') {
     // Для Windows используем WASAPI loopback для захвата системного звука
+    // ВАЖНО: WASAPI доступен только в новых версиях FFmpeg (с поддержкой WASAPI в сборке)
+    // Если получаете ошибку "Unknown input format: 'wasapi'", обновите FFmpeg
     return {
       args: [
         '-f', 'wasapi',
@@ -106,6 +108,16 @@ function getPlatformErrorMessage(errorOutput) {
       );
     }
   } else if (platform === 'win32') {
+    if (errorOutput.includes('Unknown input format: \'wasapi\'') || errorOutput.includes('Unknown input format: wasapi')) {
+      return (
+        'Ваша версия FFmpeg не поддерживает WASAPI.\n\n' +
+        'Это происходит, если используется старая версия FFmpeg.\n\n' +
+        'Решения:\n' +
+        '1. Обновите пакет: npm install @ffmpeg-installer/ffmpeg@latest\n' +
+        '2. Или установите FFmpeg вручную с официального сайта: https://ffmpeg.org/download.html\n' +
+        '3. Убедитесь, что установлена версия FFmpeg с поддержкой WASAPI'
+      );
+    }
     if (errorOutput.includes('Cannot find') || errorOutput.includes('error')) {
       return (
         'Не удалось найти устройство записи.\n\n' +
