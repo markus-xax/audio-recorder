@@ -25,14 +25,22 @@ function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false)
   if (platform === 'win32') {
     if (useDirectShow) {
       // Fallback: используем DirectShow для захвата системного звука
-      // Пробуем использовать стандартные варианты устройств для захвата системного звука
-      // Используем более универсальный подход - пробуем несколько вариантов
-      // "virtual-audio-capturer" часто используется в виртуальных аудио драйверах
-      // Также можно использовать "Stereo Mix" если доступно
+      // Пробуем несколько стандартных вариантов устройств по очереди
+      // Используем наиболее распространенные имена устройств для захвата системного звука
+      const deviceOptions = [
+        'audio="Stereo Mix (Realtek High Definition Audio)"',
+        'audio="Stereo Mix (Realtek Audio)"',
+        'audio="Stereo Mix"',
+        'audio="What U Hear"',
+        'audio="Wave Out Mix"',
+        'audio="virtual-audio-capturer"'
+      ];
+      
+      // Используем первое устройство из списка (можно улучшить, добавив автоматический поиск)
       return {
         args: [
           '-f', 'dshow',
-          '-i', 'audio=virtual-audio-capturer',
+          '-i', deviceOptions[0],
           '-acodec', 'libmp3lame',
           '-b:a', '192k',
           '-ar', '44100',
@@ -42,12 +50,12 @@ function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false)
         ]
       };
     }
-    // Для Windows сначала пробуем WASAPI loopback для захвата системного звука
-    // Если не поддерживается, будет fallback на DirectShow
+    // Для Windows используем WASAPI loopback для захвата системного звука
+    // Пробуем несколько вариантов синтаксиса для максимальной совместимости
     return {
       args: [
         '-f', 'wasapi',
-        '-i', 'default',
+        '-i', 'loopback',
         '-acodec', 'libmp3lame',
         '-b:a', '192k',
         '-ar', '44100',

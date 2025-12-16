@@ -10,27 +10,41 @@ function getFfmpegPath() {
   if (app.isPackaged) {
     // В продакшене FFmpeg находится в распакованном asar
     const platform = process.platform;
+    const arch = process.arch === 'x64' ? 'x64' : 'ia32';
+    const platformArch = `${platform}-${arch}`;
     const ffmpegName = platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-    
-    // Путь для ffmpeg-static в production
     const ffmpegPath = path.join(
       process.resourcesPath,
       'app.asar.unpacked',
       'node_modules',
-      'ffmpeg-static',
+      '@ffmpeg-installer',
+      'ffmpeg',
+      platformArch,
       ffmpegName
     );
 
-    if (fs.existsSync(ffmpegPath)) {
-      return ffmpegPath;
+    // Если файл не найден по первому пути, пробуем альтернативный
+    if (!fs.existsSync(ffmpegPath)) {
+      // Альтернативный путь (для некоторых версий пакета)
+      const altPath = path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffmpeg-installer',
+        'ffmpeg',
+        'bin',
+        platform,
+        arch,
+        ffmpegName
+      );
+      if (fs.existsSync(altPath)) {
+        return altPath;
+      }
     }
-
-    // Если не найден, возвращаем путь (для отладки)
     return ffmpegPath;
   } else {
-    // В режиме разработки используем путь из ffmpeg-static
-    // ffmpeg-static экспортирует путь напрямую как строку
-    return require('ffmpeg-static');
+    // В режиме разработки используем обычный путь
+    return require('@ffmpeg-installer/ffmpeg').path;
   }
 }
 
