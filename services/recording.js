@@ -8,6 +8,8 @@ class RecordingService {
     this.recordingProcess = null;
     this.outputPath = null;
     this.mainWindow = null;
+    this.useDirectShow = false; // Флаг для fallback на DirectShow на Windows
+    this.ffmpegPath = null; // Сохраняем путь к FFmpeg для fallback
   }
 
   /**
@@ -38,10 +40,11 @@ class RecordingService {
       }
 
       const ffmpegPath = validation.path;
+      this.ffmpegPath = ffmpegPath; // Сохраняем для fallback
       this.outputPath = filePath;
 
-      // Получаем аргументы для платформы
-      const { args, error } = getRecordingArgs(filePath, deviceIndex);
+      // Получаем аргументы для платформы (с учетом fallback на DirectShow)
+      const { args, error } = getRecordingArgs(filePath, deviceIndex, this.useDirectShow);
       if (error) {
         return { success: false, error };
       }
@@ -86,6 +89,57 @@ class RecordingService {
         output.includes('Error')
       ) {
         console.error(`FFmpeg error: ${output}`);
+
+        // Автоматический fallback на DirectShow для Windows, если WASAPI не поддерживается
+        if (platform === 'win32' && 
+            output.includes('Unknown input format') && 
+            output.includes('wasapi') && 
+            !this.useDirectShow) {
+          console.log('WASAPI не поддерживается, переключаемся на DirectShow...');
+          recordingProc.kill();
+          this.recordingProcess = null;
+          this.useDirectShow = true;
+          
+          // Перезапускаем запись с DirectShow
+          setTimeout(() => {
+            const { args, error } = getRecordingArgs(this.outputPath, null, true);
+            if (!error && this.ffmpegPath) {
+              console.log('Запуск FFmpeg с DirectShow:', args.join(' '));
+              this.recordingProcess = spawn(this.ffmpegPath, args);
+              this._setupProcessHandlers();
+            } else {
+              if (this.mainWindow) {
+                this.mainWindow.webContents.send('recording-error', 
+                  'WASAPI не поддерживается вашей версией FFmpeg.\n\n' +
+                  'Для записи системного звука на Windows:\n' +
+                  '1. Установите виртуальное аудио устройство (Virtual Audio Cable или Stereo Mix)\n' +
+                  '2. Или используйте более новую версию FFmpeg с поддержкой WASAPI\n' +
+                  '3. Скачайте FFmpeg с https://www.gyan.dev/ffmpeg/builds/ (full build)'
+                );
+              }
+            }
+          }, 500);
+          return;
+        }
+
+        // Обработка ошибок DirectShow
+        if (platform === 'win32' && 
+            this.useDirectShow && 
+            (output.includes('Cannot find') || output.includes('does not exist'))) {
+          console.error('DirectShow устройство не найдено');
+          recordingProc.kill();
+          this.recordingProcess = null;
+          if (this.mainWindow) {
+            this.mainWindow.webContents.send('recording-error', 
+              'Не найдено устройство для записи системного звука.\n\n' +
+              'Для записи системного звука на Windows:\n' +
+              '1. Включите "Stereo Mix" в настройках звука Windows (ПКМ на иконке звука -> Звуки -> Запись)\n' +
+              '2. Или установите Virtual Audio Cable: https://vb-audio.com/Cable/\n' +
+              '3. После установки выберите устройство в настройках записи'
+            );
+          }
+          return;
+        }
 
         const errorMessage = getPlatformErrorMessage(output);
         if (errorMessage) {

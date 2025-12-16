@@ -16,15 +16,34 @@ function initializePlatform() {
  * Получает аргументы FFmpeg для записи в зависимости от платформы
  * @param {string} outputPath - Путь для сохранения файла
  * @param {number|null} deviceIndex - Индекс аудио устройства (для macOS, по умолчанию 0)
+ * @param {boolean} useDirectShow - Использовать DirectShow вместо WASAPI (fallback для Windows)
  * @returns {{args: string[], error?: string}} Аргументы FFmpeg или ошибка
  */
-function getRecordingArgs(outputPath, deviceIndex = null) {
+function getRecordingArgs(outputPath, deviceIndex = null, useDirectShow = false) {
   const platform = process.platform;
 
   if (platform === 'win32') {
-    // Для Windows используем WASAPI loopback для захвата системного звука
-    // ВАЖНО: WASAPI доступен только в новых версиях FFmpeg (с поддержкой WASAPI в сборке)
-    // Если получаете ошибку "Unknown input format: 'wasapi'", обновите FFmpeg
+    if (useDirectShow) {
+      // Fallback: используем DirectShow для захвата системного звука
+      // Пробуем использовать стандартные варианты устройств для захвата системного звука
+      // Используем более универсальный подход - пробуем несколько вариантов
+      // "virtual-audio-capturer" часто используется в виртуальных аудио драйверах
+      // Также можно использовать "Stereo Mix" если доступно
+      return {
+        args: [
+          '-f', 'dshow',
+          '-i', 'audio=virtual-audio-capturer',
+          '-acodec', 'libmp3lame',
+          '-b:a', '192k',
+          '-ar', '44100',
+          '-ac', '2',
+          '-y',
+          outputPath
+        ]
+      };
+    }
+    // Для Windows сначала пробуем WASAPI loopback для захвата системного звука
+    // Если не поддерживается, будет fallback на DirectShow
     return {
       args: [
         '-f', 'wasapi',
